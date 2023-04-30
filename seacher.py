@@ -74,7 +74,7 @@ class Searcher:
     def result_dict(self,inn, corp_id,corp_name,new_data):        
         res = []
         for line in new_data:
-            d = {}            
+            d = {}
             d['inn'] = inn
             d['corp_id'] = corp_id
             d['company'] = corp_name
@@ -84,6 +84,15 @@ class Searcher:
             d['status'] = SystemStatus.SUCCESS
             d['info'] = ''
             res.append(d)
+        
+        if len(res) == 0:
+            d = {}
+            d['inn'] = inn
+            d['corp_id'] = corp_id
+            d['company'] = corp_name            
+            d['status'] = SystemStatus.NOFORMS            
+            res.append(d)
+            
         return res
         
 
@@ -114,7 +123,7 @@ class Searcher:
 
 if __name__ == "__main__":
     s = Searcher()
-    df_res = s.start_search(pd.DataFrame(data=[['9731036697','','','','','','','','']],
+    df_res = s.start_search(pd.DataFrame(data=[['7838450258','','','','','','','','']],
                         columns=['inn'
                                 ,'company'
                                 ,'index'

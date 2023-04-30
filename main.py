@@ -68,12 +68,7 @@ with col_filter2:
 
 filter_status = []
 with col_filter3:    
-    filter_status = st.multiselect('Status',[
-        SystemStatus.NEW,
-        SystemStatus.UPDATE,
-        SystemStatus.SUCCESS,
-        SystemStatus.ERROR,
-    ])
+    filter_status = st.multiselect('Status',SystemStatus.get_values())
     if len(filter_status)>0:
         df_part = df_part[df_part['status'].isin(filter_status)]
 
@@ -112,16 +107,17 @@ def start_search():
     
     #поиск по данным
     df_result = my_searcher.start_search(df_part, callback_progress)
+    #print(f'{df_result.shape=}')
 
     #по результату должны по каждому ИНН, который был отправлен в поиск, сделать обновление в исходной таблице
     for inn in df_part['inn'].unique():        
 
         df_result_inn = df_result[df_result['inn'] == inn]
 
-        if (df_result_inn['status'] == SystemStatus.SUCCESS).any():
+        if (df_result_inn['status'] != SystemStatus.ERROR).any():
             # если обновление получено со статусом успешно, тогда удаляем строчки из исходной таблицы, чтобы потом вставить заново
             df.drop(index=df[df['inn'] == inn].index, inplace=True)
-        elif (df_result_inn['status'] == SystemStatus.ERROR).any():
+        else:
             # если обновление получено со статусом ошибки, тогда в исходной таблице помечаем статус с ошибкой и пишем информацию почему.
             one_line = df_result_inn[df_result_inn['status'] == SystemStatus.ERROR]
             df.loc[df['inn'] == inn,'status'] = SystemStatus.ERROR
@@ -129,7 +125,7 @@ def start_search():
             
 
     # в исходную таблицу из результата добавляем всё что было со статусом успешно
-    df = pd.concat([df, df_result[df_result['status'] == SystemStatus.SUCCESS]])
+    df = pd.concat([df, df_result[df_result['status'] != SystemStatus.ERROR]])
 
     df.to_csv(global_path, index=False, sep='\t')
     if 'file_uploader' in  st.session_state:
