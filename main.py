@@ -78,7 +78,7 @@ with col_filter3:
         df_part = df_part[df_part['status'].isin(filter_status)]
 
 #отрисовка таблицы
-st.dataframe(df_part[column_for_view])
+st.dataframe(df_part[column_for_view],use_container_width=True)
 count_row = len(df_part)
 
 progress_count = 0
@@ -90,6 +90,8 @@ def callback_progress():
     '''метод, который срабатывает каждый раз после обработки одного инн, для обновления прогресса'''
     global progress_count,progress_step,my_bar
     progress_count += progress_step
+    if progress_count > 1.0:
+        progress_count = 1.0
     my_bar.progress(progress_count)
 
 def start_search():
