@@ -28,53 +28,67 @@ def get_df_from_file(path):
 
 df = get_df_from_file(global_path)
 
-#форма для загрузки файла с ИНН
-with st.form("my-form", clear_on_submit=True):
-    uploaded_file = st.file_uploader("Choose a file inn list",key='file_uploader')
-    if uploaded_file is not None:
-        stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
-        string_data = stringio.readlines()
+def upload_file():
+    global df
+    #форма для загрузки файла с ИНН
+    with st.form("my-form", clear_on_submit=True):
+        uploaded_file = st.file_uploader("upload file",key='file_uploader')
+        print(f'{uploaded_file=}')
+        if uploaded_file is not None:
+            stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
+            string_data = stringio.readlines()
+            print(f'{string_data=}')
+            for inn_line in string_data:
+                inn = inn_line.replace('\r','').replace('\n','')
+                
+                if inn == '': continue
 
-        for inn_line in string_data:
-            inn = inn_line.replace('\r','').replace('\n','')
-            
-            if inn == '': continue
+                if not (df['inn'] == inn).any():
+                    new_row = {'inn':inn,
+                            'status': SystemStatus.NEW}
+                    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                    print(f'{df.shape=}')
+        submitted = st.form_submit_button("Add to Table")  
 
-            if not (df['inn'] == inn).any():
-                new_row = {'inn':inn,
-                           'status': SystemStatus.NEW}
-                df = df.append(new_row, ignore_index=True)
-    submitted = st.form_submit_button("Add to Table")
+# if st.button('inn'):
+upload_file()
+    
 
-#отрисовка двух фильтров
-col_filter1, col_filter2, col_filter3 = st.columns(3)
+def save_table(df):
+    df.to_csv(global_path, index=False, sep='\t')
 
-with col_filter1:
-    filter_text = st.text_input('filter:')
-count_row = 0
 df_part = df
-if filter_text != '':
-    try:
-        df_part = df.query(filter_text)        
-    except:
-        pass
+def view_filters():
+    global df_part
+    #отрисовка двух фильтров
+    col_filter1, col_filter2, col_filter3 = st.columns(3)
 
-options = []
-with col_filter2:
-    indexies = list(df['index'].unique())
-    options = st.multiselect('Index',indexies)
-    if len(options)>0:
-        df_part = df_part[df_part['index'].isin(options)]
+    with col_filter1:
+        filter_text = st.text_input('filter:')
+    count_row = 0
+    if filter_text != '':
+        try:
+            df_part = df.query(filter_text)        
+        except:
+            pass
 
-filter_status = []
-with col_filter3:    
-    filter_status = st.multiselect('Status',SystemStatus.get_values())
-    if len(filter_status)>0:
-        df_part = df_part[df_part['status'].isin(filter_status)]
+    options = []
+    with col_filter2:
+        indexies = list(df['index'].unique())
+        options = st.multiselect('Index',indexies)
+        if len(options)>0:
+            df_part = df_part[df_part['index'].isin(options)]
 
-#отрисовка таблицы
-st.dataframe(df_part[column_for_view],use_container_width=True)
-count_row = len(df_part)
+    filter_status = []
+    with col_filter3:    
+        filter_status = st.multiselect('Status',SystemStatus.get_values())
+        if len(filter_status)>0:
+            df_part = df_part[df_part['status'].isin(filter_status)]
+
+def view_table():
+    #отрисовка таблицы
+    st.dataframe(df_part[column_for_view],use_container_width=True)
+    count_row = len(df_part)
 
 progress_count = 0
 progress_step = 0
@@ -126,8 +140,8 @@ def start_search():
 
     # в исходную таблицу из результата добавляем всё что было со статусом успешно
     df = pd.concat([df, df_result[df_result['status'] != SystemStatus.ERROR]])
-
-    df.to_csv(global_path, index=False, sep='\t')
+    save_table(df)
+    
     if 'file_uploader' in  st.session_state:
         del st.session_state['file_uploader']
     my_bar.empty()
@@ -141,12 +155,12 @@ def to_update_search():
 
     df.loc[df_part.index,'status'] = SystemStatus.UPDATE
 
-    df.to_csv(global_path,index=False,sep='\t')
+    save_table(df)
     st.cache_data.clear()
 
 def delete_by_filter():
     df.drop(index = df_part.index,inplace=True)    
-    df.to_csv(global_path,index=False,sep='\t')
+    save_table(df)
     st.cache_data.clear()
 
 def confirm_delete_by_filter():    
@@ -158,22 +172,40 @@ def convert_df(df):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
     return df.to_csv().encode('1251')
 
-#отрисовка кнопок после таблицы
-col1, col2, col3, col4, col5 = st.columns(5)
+def view_toolbar():
+    global df_part, df
+    #отрисовка кнопок после таблицы
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-with col1:
-    st.button('To Update',on_click=to_update_search)
+    with col1:
+        st.button('To Update',on_click=to_update_search)
 
-with col2:
-    st.button('Start Search',on_click=start_search)
+    with col2:
+        st.button('Start Search',on_click=start_search)
 
-with col3:
-    res = st.button('Delete')
-    if res:
-        confirm_delete_by_filter()
+    with col3:
+        res = st.button('Delete')
+        if res:
+            confirm_delete_by_filter()
 
-with col4:
-    st.download_button(label='Download csv', data= convert_df(df_part),file_name='data.csv',mime='text/csv')
+    with col4:
+        st.download_button(label='Download csv', data= convert_df(df_part),file_name='data.csv',mime='text/csv')
 
-with col5:
-    st.write(f'count row - {count_row}')
+    #with col5:
+        
+    with col6:
+        st.write(f'count row - {len(df_part)}')
+
+
+     
+    
+           
+        
+# if st.button('Load from inn'):
+#     load_from_inn()
+            
+view_toolbar()
+
+view_filters()
+
+view_table()
